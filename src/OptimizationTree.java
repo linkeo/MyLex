@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.HashSet;
 
 
 public class OptimizationTree extends ArrayList<OptimizationNode>{
@@ -39,6 +40,7 @@ public class OptimizationTree extends ArrayList<OptimizationNode>{
 			System.err.println("Optimization Error: no such node in tree.");
 			return null;
 		}else{
+//			System.out.print(index);
 			index = (index+1)*2-1;
 			return this.node(index);
 		}
@@ -49,6 +51,7 @@ public class OptimizationTree extends ArrayList<OptimizationNode>{
 			System.err.println("Optimization Error: no such node in tree.");
 			return null;
 		}else{
+//			System.out.print(index);
 			index = (index+1)*2;
 			return this.node(index);
 		}
@@ -83,19 +86,39 @@ public class OptimizationTree extends ArrayList<OptimizationNode>{
 		}
 	}
 	public boolean isLeaf(OptimizationNode node){
-		return hasLeftChild(node)&&hasRightChild(node);
+		return (node!=null)&&(!hasLeftChild(node))&&(!hasRightChild(node));
 	}
 
 	public void move(FAVertex v, OptimizationNode node,
 			OptimizationNode newnode) {
-		node.remove(v);
+//		System.out.println("Move: "+node+"--"+v+"->"+newnode);
+//		node.remove(v);
 		newnode.add(v);
 	}
 	public OptimizationNode find(FAVertex v){
 		for(OptimizationNode n : this)
-			if(n!=null&&n.contains(v))
+			if(isLeaf(n)&&n!=null&&n.contains(v)){
 				return n;
+			}
 		System.err.println("Optimization Error: vertex not found in tree.");
 		return null;
+	}
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("===OPTIMIZATION TREE===\n");
+		for(OptimizationNode n : this){
+			if(isLeaf(n))
+			sb.append("<"+indexOf(n)+">"+n+"\n");
+		}
+		sb.append("=======================\n");
+		return sb.toString();
+	}
+	public HashSet<OptimizationNode> leaves(){
+		HashSet<OptimizationNode> leaves = new HashSet<OptimizationNode>();
+		for(OptimizationNode n : this)
+			if(isLeaf(n))
+				leaves.add(n);
+		return leaves;
 	}
 }

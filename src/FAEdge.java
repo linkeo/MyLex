@@ -6,6 +6,12 @@ public class FAEdge {
 	public int getStart() {
 		return start;
 	}
+	public void setStart(int value){
+		this.start = value;
+	}
+	public void setEnd(int value){
+		this.end = value;
+	}
 	public int getEnd() {
 		return end;
 	}

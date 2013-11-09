@@ -21,7 +21,9 @@ public class FAEnvironment {
 		return marks;
 	}
 	public FA parseNFAtoDFA(FA nfa, FAEnvironment newEnvironment){
+		System.out.println(">Parsing NFA into DFA:");
 		HashSet<String> marks = terminals();
+		marks.remove(EPSILON);
 		HashMap<HashSet<Integer>,Integer> nv = new HashMap<HashSet<Integer>,Integer>();
 		ArrayDeque<HashSet<FAVertex>> unset = new ArrayDeque<HashSet<FAVertex>>();
 
@@ -77,6 +79,8 @@ public class FAEnvironment {
 		while(!stack.isEmpty()){
 			v = stack.pop();
 			for(String mark : marks){
+				if(mark.equals(EPSILON))
+					return false;
 				HashSet<FAVertex> move = move(v,mark);
 				if(move.size()!=1)
 					return false;
@@ -110,7 +114,8 @@ public class FAEnvironment {
 		return visited;
 	}
 	
-	public FA optimizeDFA(FA dfa){
+	public boolean optimizeDFA(FA dfa){
+		System.out.println(">Optimizing DFA:");
 		HashSet<FAVertex> vs = verticesInFA(dfa);
 		HashMap<FAVertex, Integer> out = dfa.out();
 		OptimizationTree tree = new OptimizationTree();
@@ -123,58 +128,105 @@ public class FAEnvironment {
 			else
 				tree.move(v, node, tree.getRightChild(node));
 		}
-		if(optimizeByStateEq(dfa, tree))
-			while(optimizeByStateEq(dfa, tree));
-		else{
-			System.out.println("No need to optimize.");
-			return dfa;
+		System.out.println(">State Equivelance:");
+		while(optimizeByStateEq(dfa, tree));
+		System.out.println(tree);
+		boolean optimized = false;
+		for(OptimizationNode leaf : tree.leaves()){
+			if(leaf.size()>1){
+				optimized = true;
+				Stack<FAVertex> stack = new Stack<FAVertex>();
+				stack.addAll(leaf);
+				FAVertex repr = stack.peek();
+				if(dfa.out().containsKey(repr))
+					for(FAVertex v : leaf){
+						if(dfa.out().get(v)<dfa.out().get(repr))
+							repr = v;
+					}
+				stack.remove(repr);
+				while(!stack.empty()){
+					FAVertex v = stack.pop();
+					for(FAEdge e : edges){
+						if(e.getStart()==v.getValue())
+							e.setStart(repr.getValue());
+						if(e.getEnd()==v.getValue())
+							e.setEnd(repr.getValue());
+					}
+					dfa.out().remove(v);
+				}
+				HashSet<FAEdge> tempEdges = new HashSet<FAEdge>(edges);
+				for(FAEdge e : tempEdges){
+					for(FAEdge f : tempEdges){
+						if((edges.contains(e)&&edges.contains(f))&&(e!=f)
+								&&(e.getStart()==f.getStart())&&(e.getEnd()==f.getEnd())){
+							edges.remove(f);
+						}
+					}
+				}
+			}
 		}
-		int index = 0;
-		for(OptimizationNode n : tree){
-			System.out.print(n);
-			if((index++)%2==0)
-				System.out.println();
-		}
-		System.err.println("Optimizing operation is not programmed yet!");
-		return dfa;
+		return optimized;
 	}
 	
 	private boolean optimizeByStateEq(FA dfa, OptimizationTree tree){
 		boolean optimized = false;
-		for(String mark : terminals())
+		for(String mark : terminals()){
+//			System.out.println("Optimize using \""+mark+"\"");
 			optimized = optimized || optimizeNode(tree.root(), tree, dfa, mark);
+		}
 		return optimized;
 	}
 	
 	private boolean optimizeNode(OptimizationNode node, OptimizationTree tree,
 			FA dfa, String mark) {
+//		System.out.println(tree);
 		if(tree.isLeaf(node)){
+//			System.out.println("Optimizing node "+tree.indexOf(node)+":"+node.size());
 			OptimizationNode expectNode=null;
+			HashMap<FAVertex,OptimizationNode> foundMap = new HashMap<FAVertex, OptimizationNode>();
 			boolean seperate = false;
 			for(FAVertex v : node){
+//				System.out.println("Expect node is "+expectNode);
+				OptimizationNode foundNode = tree.find(next(v, mark));
+				foundMap.put(v, foundNode);
+//				System.out.println("Node found  is "+foundNode);
 				if(expectNode==null)
-					expectNode = tree.find(next(v, mark));
+					expectNode = foundNode;
 				else
-					if(tree.find(next(v, mark))!=expectNode){
+					if(foundNode!=expectNode){
+//						System.out.println("Seperate on: "+expectNode+" != "+foundNode);
 						seperate = true;
 						break;
 					}
 			}
 			if(seperate){
-				for(FAVertex v : node){
-					if(tree.find(next(v, mark))==expectNode)
-						tree.move(v, node, tree.getLeftChild(node));
-					else
-						tree.move(v, node, tree.getRightChild(node));
+				System.out.println("Seperate node "+tree.indexOf(node)+", inequality of next(\""+mark+"\")");
+				OptimizationNode tempLeft = new OptimizationNode();
+				OptimizationNode tempRight = new OptimizationNode();
+				OptimizationNode left = tree.getLeftChild(node);
+				OptimizationNode right = tree.getRightChild(node);
+				for(FAVertex v : new OptimizationNode(node)){
+					OptimizationNode foundNode = foundMap.get(v);
+					if(foundNode==expectNode){
+						tree.move(v, node, tempLeft);
+					}else{
+						tree.move(v, node, tempRight);
+					}
 				}
-			}
-			return seperate;
-		}else
+				left.addAll(tempLeft);
+				right.addAll(tempRight);
+				return true;
+			}else
+				return false;
+		}else{
 			return optimizeNode(tree.getLeftChild(node), tree, dfa, mark)
 					||optimizeNode(tree.getRightChild(node), tree, dfa, mark);
+		}
 	}
 	public FA parseREtoNFA(RE re){
+		System.out.println(">Postfixing Regular Expression:");
 		String postfix = re.postfix();
+		System.out.println(">Parsing Regular Expression into NFA:");
 		SScanner scan = new SScanner(postfix);
 		Stack<FA> stack = new Stack<FA>();
 		while(scan.hasNext()){

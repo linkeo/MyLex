@@ -1,17 +1,6 @@
 import java.util.Stack;
 
 public class RE{
-// 操作符: (, ), |, *, \
-
-// 正则表达式中序转后序:
-// 1.遇到字符压栈1;
-// 2.遇到操作符:
-// 	1.如果栈2空, 压栈2;
-// 	2.持续判断栈2的栈顶直到遇到左括号, 如果栈顶操作符优先级高(或等于且左结合的话), 处理栈顶操作符, 否则压栈2;
-// 3.遇到(压栈2,
-// 4.遇到)按2.2处理, 直到遇到左括号, 遇到则与左括号同归于尽;
-// 5.遇到\读取下一个字符, 忽略操作符判断;
-
 	// input	output
 	// 0:)		
 	// 1:|		
@@ -29,14 +18,14 @@ public class RE{
 	private Stack<Character> stack = new Stack<Character>();
 	private StringBuilder result = new StringBuilder();
 	public RE(String str){
-		s = new SScanner(str);
+		s = new SScanner(str.replace(".", "\\."));
 	}
 	public static void main(String[] args){
 		RE p = new RE("(\\.|b)*aab(bab*a)*");
 		System.out.println(p.postfix());
 	}
 	public void setSource(String str){
-		s = new SScanner(str);
+		s = new SScanner(str.replace(".", "\\."));
 	}
 	public String read() {
 		StringBuilder sb = new StringBuilder();
