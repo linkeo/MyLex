@@ -1,6 +1,5 @@
 import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Stack;
@@ -14,13 +13,18 @@ public class FAEnvironment {
 	public int createIndex(){
 		return ++index;
 	}
-	public FA parseNFAtoDFA(FA nfa, FAEnvironment newEnvironment){
+	private HashSet<String> terminals(){
 		HashSet<String> marks = new HashSet<String>();
-		HashMap<HashSet<Integer>,Integer> nv = new HashMap<HashSet<Integer>,Integer>();
-		ArrayDeque<HashSet<FAVertex>> unset = new ArrayDeque<HashSet<FAVertex>>();
 		//Get all Terminals
 		for(FAEdge edge : edges)
 			marks.add(edge.getCharacter());
+		return marks;
+	}
+	public FA parseNFAtoDFA(FA nfa, FAEnvironment newEnvironment){
+		HashSet<String> marks = terminals();
+		HashMap<HashSet<Integer>,Integer> nv = new HashMap<HashSet<Integer>,Integer>();
+		ArrayDeque<HashSet<FAVertex>> unset = new ArrayDeque<HashSet<FAVertex>>();
+
 		FA dfa = new FA(newEnvironment);
 		
 		//Create Start Vertex
@@ -60,6 +64,114 @@ public class FAEnvironment {
 		}
 		System.out.println(nv);
 		return dfa;
+	}
+	
+	public boolean checkDFA(FA fa){
+		HashSet<String> marks = terminals();
+		HashSet<FAVertex> visited = new HashSet<FAVertex>();
+		Stack<FAVertex> stack = new Stack<FAVertex>();
+		
+		FAVertex v = fa.in();
+		visited.add(v);
+		stack.push(v);
+		while(!stack.isEmpty()){
+			v = stack.pop();
+			for(String mark : marks){
+				HashSet<FAVertex> move = move(v,mark);
+				if(move.size()!=1)
+					return false;
+				for(FAVertex t : move){
+					if(!visited.contains(t)){
+						stack.push(t);
+						visited.add(t);
+					}
+				}
+			}
+		}
+		return true;
+	}
+	
+	public HashSet<FAVertex> verticesInFA(FA fa){
+		HashSet<FAVertex> visited = new HashSet<FAVertex>();
+		Stack<FAVertex> stack = new Stack<FAVertex>();
+		FAVertex v = fa.in();
+		visited.add(v);
+		stack.push(v);
+		while(!stack.isEmpty()){
+			v = stack.pop();
+			HashSet<FAVertex> move = move(v);
+			for(FAVertex t : move){
+				if(!visited.contains(t)){
+					stack.push(t);
+					visited.add(t);
+				}
+			}
+		}
+		return visited;
+	}
+	
+	public FA optimizeDFA(FA dfa){
+		HashSet<FAVertex> vs = verticesInFA(dfa);
+		HashMap<FAVertex, Integer> out = dfa.out();
+		OptimizationTree tree = new OptimizationTree();
+		OptimizationNode node = tree.root();
+		node.addAll(vs);
+		//step1:divide end and non-end
+		for(FAVertex v : new OptimizationNode(node)){
+			if(!out.containsKey(v))
+				tree.move(v, node, tree.getLeftChild(node));
+			else
+				tree.move(v, node, tree.getRightChild(node));
+		}
+		if(optimizeByStateEq(dfa, tree))
+			while(optimizeByStateEq(dfa, tree));
+		else{
+			System.out.println("No need to optimize.");
+			return dfa;
+		}
+		int index = 0;
+		for(OptimizationNode n : tree){
+			System.out.print(n);
+			if((index++)%2==0)
+				System.out.println();
+		}
+		System.err.println("Optimizing operation is not programmed yet!");
+		return dfa;
+	}
+	
+	private boolean optimizeByStateEq(FA dfa, OptimizationTree tree){
+		boolean optimized = false;
+		for(String mark : terminals())
+			optimized = optimized || optimizeNode(tree.root(), tree, dfa, mark);
+		return optimized;
+	}
+	
+	private boolean optimizeNode(OptimizationNode node, OptimizationTree tree,
+			FA dfa, String mark) {
+		if(tree.isLeaf(node)){
+			OptimizationNode expectNode=null;
+			boolean seperate = false;
+			for(FAVertex v : node){
+				if(expectNode==null)
+					expectNode = tree.find(next(v, mark));
+				else
+					if(tree.find(next(v, mark))!=expectNode){
+						seperate = true;
+						break;
+					}
+			}
+			if(seperate){
+				for(FAVertex v : node){
+					if(tree.find(next(v, mark))==expectNode)
+						tree.move(v, node, tree.getLeftChild(node));
+					else
+						tree.move(v, node, tree.getRightChild(node));
+				}
+			}
+			return seperate;
+		}else
+			return optimizeNode(tree.getLeftChild(node), tree, dfa, mark)
+					||optimizeNode(tree.getRightChild(node), tree, dfa, mark);
 	}
 	public FA parseREtoNFA(RE re){
 		String postfix = re.postfix();
@@ -109,7 +221,20 @@ public class FAEnvironment {
 		}
 		return closure;
 	}
-
+	/**
+	 * <b>WARNING: this method is for DFA only!</b><br>
+	 * it returns first found vertex next to v,mark or null if not found.
+	 * @param v
+	 * @param mark
+	 * @return
+	 */
+	public FAVertex next(FAVertex v, String mark){
+		for(FAEdge edge : edges)
+			if(getVertex(edge.getStart())==v&&edge.getCharacter().equals(mark))
+				return getVertex(edge.getEnd());
+		return null;
+	}
+	
 	public HashSet<FAVertex> move(FAVertex v, String mark){
 		HashSet<FAVertex> move = new HashSet<FAVertex>();
 		for(FAEdge edge : edges)

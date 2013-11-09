@@ -8,5 +8,9 @@ public class Test {
 		System.out.println(nfa);
 		FA dfa = nenv.parseNFAtoDFA(nfa, denv);
 		System.out.println(dfa);
+		if(denv.checkDFA(dfa))
+			denv.optimizeDFA(dfa);
+		else
+			System.err.println("It's not a DFA");
 	}
 }
